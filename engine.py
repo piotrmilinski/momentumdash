@@ -22,6 +22,8 @@ def fetch_prices_yahoo(
     tickers: Iterable[str], start=None, end=None, verify: bool = True
 ) -> Tuple[pd.DataFrame, Dict[str, str]]:
     """Fetch daily adjusted close prices from Yahoo Finance ticker-by-ticker.
+def fetch_prices_yahoo(tickers: Iterable[str], start=None, end=None) -> pd.DataFrame:
+    """Fetch daily adjusted close prices from Yahoo Finance.
 
     Parameters
     ----------
@@ -76,6 +78,13 @@ def fetch_prices_yahoo(
     prices = pd.concat(frames, axis=1) if frames else pd.DataFrame()
     prices = prices.dropna(how="all")
     return prices, failures
+    """
+
+    df = yf.download(list(tickers), start=start, end=end, progress=False, auto_adjust=True)
+    if isinstance(df, pd.DataFrame) and "Adj Close" in df.columns:
+        df = df["Adj Close"].copy()
+    df = df.dropna(how="all")
+    return df
 
 
 def resample_weekly(prices: pd.DataFrame, rule: str = config.ASOF_WEEKLY_RULE) -> pd.DataFrame:

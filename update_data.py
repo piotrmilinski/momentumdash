@@ -37,6 +37,10 @@ def main() -> None:
         if not existing.empty:
             prices = existing.combine_first(prices)
 
+    prices = fetch_prices_yahoo(tickers, start=config.START_DATE)
+    if prices.empty:
+        raise RuntimeError("No data downloaded. Check network access or tickers.")
+
     prices = prices.sort_index()
     prices.to_csv(PRICES_PATH)
 
