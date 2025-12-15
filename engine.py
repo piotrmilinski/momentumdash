@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Tuple
 import numpy as np
 import pandas as pd
 import yfinance as yf
+import requests
 
 import config
 
@@ -17,6 +18,10 @@ PRICES_PATH = os.path.join(DATA_DIR, "prices_daily.csv")
 META_PATH = os.path.join(DATA_DIR, "meta.json")
 
 
+def fetch_prices_yahoo(
+    tickers: Iterable[str], start=None, end=None, verify: bool = True
+) -> Tuple[pd.DataFrame, Dict[str, str]]:
+    """Fetch daily adjusted close prices from Yahoo Finance ticker-by-ticker.
 def fetch_prices_yahoo(tickers: Iterable[str], start=None, end=None) -> pd.DataFrame:
     """Fetch daily adjusted close prices from Yahoo Finance.
 
@@ -26,6 +31,53 @@ def fetch_prices_yahoo(tickers: Iterable[str], start=None, end=None) -> pd.DataF
         List of ticker symbols.
     start, end: optional
         Date boundaries for the download.
+    verify: bool, default True
+        Whether to verify SSL certificates for HTTPS requests. Setting to False
+        can help in restrictive corporate environments with custom proxies.
+
+    Returns
+    -------
+    prices: pd.DataFrame
+        Adjusted close prices with tickers as columns.
+    failures: Dict[str, str]
+        Mapping of tickers that failed to download to error messages.
+    """
+
+    frames = []
+    failures: Dict[str, str] = {}
+
+    session = None
+    if not verify:
+        session = requests.Session()
+        session.verify = False
+
+    for ticker in tickers:
+        try:
+            df = yf.download(
+                ticker,
+                start=start,
+                end=end,
+                progress=False,
+                auto_adjust=True,
+                session=session,
+            )
+            if isinstance(df, pd.DataFrame) and not df.empty:
+                if "Adj Close" in df.columns:
+                    series = df["Adj Close"].rename(ticker)
+                elif "Close" in df.columns:
+                    series = df["Close"].rename(ticker)
+                else:
+                    failures[ticker] = "Missing close prices in response"
+                    continue
+                frames.append(series)
+            else:
+                failures[ticker] = "No data returned"
+        except Exception as exc:  # pragma: no cover - defensive
+            failures[ticker] = str(exc)
+
+    prices = pd.concat(frames, axis=1) if frames else pd.DataFrame()
+    prices = prices.dropna(how="all")
+    return prices, failures
     """
 
     df = yf.download(list(tickers), start=start, end=end, progress=False, auto_adjust=True)

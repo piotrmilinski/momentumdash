@@ -1,4 +1,5 @@
 """Configuration for the momentum dashboard."""
+import os
 from datetime import datetime, timedelta
 
 ASOF_WEEKLY_RULE = "W-FRI"
@@ -51,3 +52,15 @@ MODEL_SPECS = {
 }
 
 START_DATE = (datetime.utcnow() - timedelta(days=365 * YEARS_HISTORY)).date()
+
+
+def _env_flag(name: str, default: str = "true") -> bool:
+    """Parse a boolean-like environment variable with a fallback."""
+
+    return os.environ.get(name, default).lower() not in {"0", "false", "no", ""}
+
+
+# Whether to verify SSL certificates for Yahoo Finance requests.
+# Leave enabled by default; users facing corporate MITM/SSL issues can set the
+# environment variable ``YAHOO_VERIFY_SSL=false`` to disable verification.
+YAHOO_VERIFY_SSL = _env_flag("YAHOO_VERIFY_SSL", "true")
